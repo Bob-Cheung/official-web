@@ -1,14 +1,16 @@
-import React from 'react';
-import { Box, Container, Typography, Grid, Paper, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Container, Typography, Grid, Paper, TextField, Button, CircularProgress, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { Send as SendIcon, MapPin as MapPinIcon, Phone as PhoneIcon, Email as EmailIcon } from '@mui/icons-material';
 
 const Contact = () => {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
-    subject: '',
     message: '',
   });
+  const [disabled, setDisabled] = useState(false);
+
+  const WEBHOOK_URL = "https://royal-sun-7d97.2460106543.workers.dev"; // 替换为你的 Cloudflare Workers 触发URL！！！
 
   // 表单输入变化处理
   const handleChange = (e) => {
@@ -18,11 +20,47 @@ const Contact = () => {
 
   // 表单提交处理
   const handleSubmit = (e) => {
+    console.log(formData);
     e.preventDefault();
-    // 这里可添加接口请求逻辑（如发送到后端）
-    alert('表单提交成功！我们会尽快与您联系～');
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    sendData(formData);
   };
+
+  const sendData = async (data) => {
+    setDisabled(true);
+    try {
+      // 3. 组装企业微信消息格式（文本类型）
+      const requestData = {
+        msgtype: "text",
+        text: {
+          content: `📩 新留言通知\n\n🧑 姓名：${data.name}\n📧 邮箱：${data.email}\n💬 留言内容：\n${data.message}\n\n⏰ 提交时间：${new Date().toLocaleString()}`
+        }
+      };
+
+      // 4. 发送请求到代理地址（不再直接请求企业微信）
+      const response = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        body: JSON.stringify(requestData),
+        mode: "cors"
+      });
+
+      const result = await response.json();
+      if (result.errcode === 0) {
+        alert("提交成功！我们会尽快联系你～");
+      } else {
+        alert(`提交失败：${result.errmsg}`);
+      }
+    } catch (error) {
+      console.error("发送失败：", error);
+      alert("网络异常，请稍后重试～");
+    } finally {
+      console.log("finally");
+      setDisabled(false);
+      setFormData({ name: '', email: '', message: '' });
+    }
+  }
 
   return (
     <Box sx={{ py: 12, bgcolor: 'background.default' }}>
@@ -88,7 +126,8 @@ const Contact = () => {
                   variant="contained"
                   color="primary"
                   size="large"
-                  endIcon={<SendIcon />}
+                  disabled={disabled}
+                  endIcon={disabled ? <CircularProgress size={20} /> : <SendIcon />}
                   sx={{ px: 5, py: 1.5, mt: 2 }}
                 >
                   发送消息
